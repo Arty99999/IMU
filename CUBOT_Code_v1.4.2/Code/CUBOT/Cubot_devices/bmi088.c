@@ -31,7 +31,10 @@ BMI088_t bmi088 =
                 .chipSelect =
                     {
                         .cs_pin = GPIO_PIN_4,
-                        .gpiox  = GPIOA,
+                        .gpiox  = GPIOA,//紫板引脚
+											
+//										    .cs_pin = GPIO_PIN_2,
+//                        .gpiox  = GPIOD,//外置小板引脚									
                     },
             },
         .bmi088Gyro =
@@ -39,7 +42,11 @@ BMI088_t bmi088 =
                 .chipSelect =
                     {
                         .cs_pin = GPIO_PIN_4,
-                        .gpiox  = GPIOC,
+                        .gpiox  = GPIOC,//紫板引脚
+											
+//											 .cs_pin = GPIO_PIN_4,
+//                        .gpiox  = GPIOA,//外置小板引脚
+											
                     },
             },
 };

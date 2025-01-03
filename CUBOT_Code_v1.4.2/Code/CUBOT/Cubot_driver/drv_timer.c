@@ -1,15 +1,15 @@
 #include "drv_timer.h"
 #include "control_logic.h"
-TIM_Object tim1;
+TIM_Object tim14;
 TIM_Object tim15;
 
 /*-------------------------------初始化---------------------------------*/
 void TIMx_Init(TIM_HandleTypeDef* handle, TIM_ElapsedCallback callback)
 {
-	if(handle->Instance == TIM1)
+	if(handle->Instance == TIM14)
 	{
-	  tim1.Handle = handle;
-		tim1.ElapCallback = callback;
+	  tim14.Handle = handle;
+		tim14.ElapCallback = callback;
 	}
 	else if(handle->Instance == TIM15)
 	{
@@ -30,8 +30,8 @@ void TIM_Open(TIM_Object* tim)
 /*-------------------------------定时器溢出中断回调---------------------------------*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)	
 {
-	if(htim==(&htim1))
+	if(htim==(&htim14))
 	{
-		tim1.ElapCallback();
+		tim14.ElapCallback();
 	}
 }

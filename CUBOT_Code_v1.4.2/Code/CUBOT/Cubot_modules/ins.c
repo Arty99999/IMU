@@ -80,7 +80,7 @@ uint8_t INS_Init(IMU_InitData_t *imu_data)
     if (ins.init_done)
         return ins.init_done;
     else {
-        while (imu_data->Init() != 0) ;
+        while (imu_data->Init(imu_data) != 0) ;
         IMU_paramCorrect.scale[X] = 1;
         IMU_paramCorrect.scale[Y] = 1;
         IMU_paramCorrect.scale[Z] = 1;

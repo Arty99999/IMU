@@ -36,7 +36,7 @@ void TIM_Open(TIM_Object* tim);
 
 
 
-extern TIM_Object tim1;;
+extern TIM_Object tim14;
 extern TIM_Object tim15;;
 
 #endif

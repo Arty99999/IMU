@@ -19,7 +19,7 @@
 int Sensors_I2C_WriteRegister(unsigned char slave_addr,
 	unsigned char reg_addr,
 	unsigned short len,
-	unsigned char* data_ptr);
+	unsigned char* data_ptr,I2C_HandleTypeDef *hi2c);
 
 /**
   * @brief  读寄存器，这是提供给上层的接口
@@ -32,7 +32,7 @@ int Sensors_I2C_WriteRegister(unsigned char slave_addr,
 int Sensors_I2C_ReadRegister(unsigned char slave_addr,
 	unsigned char reg_addr,
 	unsigned short len,
-	unsigned char* data_ptr);
+	unsigned char* data_ptr,I2C_HandleTypeDef *hi2c);
 
 #endif 
 

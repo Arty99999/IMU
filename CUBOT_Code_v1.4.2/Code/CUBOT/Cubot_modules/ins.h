@@ -33,7 +33,8 @@ typedef struct _IMU_InitData_t
     float accel_scale;
     float gyro_offset[3];
     float g_norm;
-    uint8_t (*Init)(void);
+		  I2C_HandleTypeDef *i2cHandler;
+    uint8_t (*Init)(struct _IMU_InitData_t *);
     void (*Read)(struct _IMU_InitData_t *);
 } IMU_InitData_t;
 

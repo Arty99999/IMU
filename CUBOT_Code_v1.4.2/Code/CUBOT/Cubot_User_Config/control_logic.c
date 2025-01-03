@@ -9,9 +9,9 @@
   */
 
 
-void TIM1_Task(void)
+void TIM14_Task(void)
 {
-	tim1.ClockTime++;
+	tim14.ClockTime++;
 
 	INS_attitude = INS_GetAttitude(IMU_data);
 

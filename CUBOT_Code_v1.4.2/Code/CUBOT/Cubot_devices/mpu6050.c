@@ -2,7 +2,7 @@
 #include "user_lib.h"
 #include "kalman_filter.h"
 
-MPU6050_t mpu6050       = {0};
+MPU6050_t mpu6050={.mpu6050_Data.i2cHandler=&hi2c2};
 float MPU6050_ACCEL_SEN = MPU6050_ACCEL_4G_SEN;
 float MPU6050_GYRO_SEN  = MPU6050_GYRO_1000_SEN;
 
@@ -15,43 +15,46 @@ static void MPU6050_PowerOn(void)
 }
 
 // 写数据到MPU6050寄存器
-static uint8_t MPU6050_WriteByte(uint8_t reg_add, uint8_t reg_dat)
+
+static uint8_t MPU6050_WriteByte(uint8_t reg_add, uint8_t reg_dat,I2C_HandleTypeDef *hi2c)
 {
-    return Sensors_I2C_WriteRegister(MPU6050_ADDRESS, reg_add, 1, &reg_dat);
+    return Sensors_I2C_WriteRegister(MPU6050_ADDRESS, reg_add, 1, &reg_dat,hi2c);
 }
 
 // 从MPU6050寄存器读取数据
-static uint8_t MPU6050_ReadData(uint8_t reg_add, uint8_t *Read, uint8_t num)
+static uint8_t MPU6050_ReadData(uint8_t reg_add, uint8_t *Read, uint8_t num,I2C_HandleTypeDef *hi2c)
 {
-    return Sensors_I2C_ReadRegister(MPU6050_ADDRESS, reg_add, num, Read);
+    return Sensors_I2C_ReadRegister(MPU6050_ADDRESS, reg_add, num, Read,hi2c);
 }
 
 static void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data);
 
-uint8_t MPU6050_Init(void)
+
+uint8_t MPU6050_Init(IMU_InitData_t *mpu6050_data)
 {
     uint8_t TAddr = 0;
-    MPU6050_PowerOn(); // 上电
-
-    mpu6050.WriteState = MPU6050_WriteByte(0x6B, 0x01); // 休眠
+    MPU6050_WriteByte(0x6B, 0x01,mpu6050_data->i2cHandler); // 休眠
     DWT_Delay_s(0.5);
-    mpu6050.WriteState = MPU6050_WriteByte(0x6B, 0x00); // 解除休眠状态0x00
+    MPU6050_WriteByte(0x6B, 0x00,mpu6050_data->i2cHandler); // 解除休眠状态0x00
     DWT_Delay_s(0.05);
-    MPU6050_ReadData(MPU6050_RA_WHO_AM_I, &TAddr, 1);
+    MPU6050_ReadData(MPU6050_RA_WHO_AM_I, &TAddr, 1,mpu6050_data->i2cHandler);
     if (TAddr != 0x68)
         return 1;
-    mpu6050.WriteState = MPU6050_WriteByte(0x6B, 0x00); // 解除休眠状态0x00
+    MPU6050_WriteByte(0x6B, 0x00,mpu6050_data->i2cHandler); // 解除休眠状态0x00
     DWT_Delay_s(0.05);
-    mpu6050.WriteState += MPU6050_WriteByte(0x19, 0x00); // 采样频率（1KHz）
+    MPU6050_WriteByte(0x19, 0x00,mpu6050_data->i2cHandler); // 采样频率（1KHz）
     DWT_Delay_s(0.05);
-    mpu6050.WriteState += MPU6050_WriteByte(0x1A, 0x03); // 低通滤波
+    MPU6050_WriteByte(0x1A, 0x03,mpu6050_data->i2cHandler); // 低通滤波
     DWT_Delay_s(0.05);
-    mpu6050.WriteState += MPU6050_WriteByte(0x1B, 0x10); // 陀螺仪量程，当寄存器0x1B的值为0x10时，陀螺仪量程为
+    MPU6050_WriteByte(0x1B, 0x10,mpu6050_data->i2cHandler); // 陀螺仪量程，当寄存器0x1B的值为0x10时，陀螺仪量程为
     DWT_Delay_s(0.05);
-    mpu6050.WriteState += MPU6050_WriteByte(0x1C, 0x09); // 加速度量程，当寄存器0x1C的值为0x09时，加速度量程为
+    MPU6050_WriteByte(0x1C, 0x09,mpu6050_data->i2cHandler); // 加速度量程，当寄存器0x1C的值为0x09时，加速度量程为
     DWT_Delay_s(0.05);
-	MPU6050_Calibrate_Offset(&mpu6050.mpu6050_Data);
+
+	MPU6050_Calibrate_Offset(mpu6050_data);
+	
     return 0;
+
 }
 
 // 防止零漂
@@ -85,7 +88,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
         mpu6050_data->gyro_offset[2] = 0;
 
         for (uint16_t i = 0; i < CaliTimes; ++i) {
-            MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6);
+            MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6	 ,mpu6050_data->i2cHandler);
             mpu6050_raw_temp       = (int16_t)(accBuf[0] << 8) | accBuf[1];
             mpu6050_data->accel[0] = mpu6050_raw_temp * MPU6050_ACCEL_SEN;
             mpu6050_raw_temp       = (int16_t)(accBuf[2] << 8) | accBuf[3];
@@ -98,7 +101,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
                               mpu6050_data->accel[2] * mpu6050_data->accel[2]);
             mpu6050_data->g_norm += gNormTemp;
 
-            MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6);
+            MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6,mpu6050_data->i2cHandler);
             mpu6050_raw_temp      = (int16_t)(gyroBuf[0] << 8) | gyroBuf[1];
             mpu6050_data->gyro[0] = mpu6050_raw_temp * MPU6050_GYRO_SEN;
             mpu6050_data->gyro_offset[0] += mpu6050_data->gyro[0];
@@ -150,12 +153,12 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
         mpu6050_cali_count++;
 
     } while (gNormDiff > 0.5f ||
-             fabsf(mpu6050_data->g_norm - 9.8f) > 1.0f ||
+             fabsf(mpu6050_data->g_norm - 9.8f) > 2.0f ||
              gyroDiff[0] > 0.15f ||
              gyroDiff[1] > 0.15f ||
              gyroDiff[2] > 0.15f ||
-             fabsf(mpu6050_data->gyro_offset[0]) > 0.06f ||
-             fabsf(mpu6050_data->gyro_offset[1]) > 0.02f ||
+             fabsf(mpu6050_data->gyro_offset[0]) > 0.07f ||
+             fabsf(mpu6050_data->gyro_offset[1]) > 0.07f ||
              fabsf(mpu6050_data->gyro_offset[2]) > 0.02f);
     // 若出不了while，说明校准条件恶劣，超时则使用预置值校准
     mpu6050_data->accel_scale = 9.81f / mpu6050_data->g_norm;
@@ -169,7 +172,7 @@ void MPU6050_Read(IMU_InitData_t *mpu6050_data)
     static uint8_t accBuf[6];
     static uint8_t gyroBuf[6];
     static int16_t mpu6050_raw_temp;
-    MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6);
+    MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6,mpu6050_data->i2cHandler);
     mpu6050_raw_temp       = (int16_t)(accBuf[0] << 8) | accBuf[1];
     mpu6050_data->accel[0] = mpu6050_raw_temp * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
     mpu6050_raw_temp       = (int16_t)(accBuf[2] << 8) | accBuf[3];
@@ -177,7 +180,7 @@ void MPU6050_Read(IMU_InitData_t *mpu6050_data)
     mpu6050_raw_temp       = (int16_t)(accBuf[4] << 8) | accBuf[5];
     mpu6050_data->accel[2] = mpu6050_raw_temp * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
 
-    MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6);
+    MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6,mpu6050_data->i2cHandler);
     mpu6050_raw_temp      = (int16_t)(gyroBuf[0] << 8) | gyroBuf[1];
     mpu6050_data->gyro[0] = mpu6050_raw_temp * MPU6050_GYRO_SEN - mpu6050_data->gyro_offset[0];
     mpu6050_raw_temp      = (int16_t)(gyroBuf[2] << 8) | gyroBuf[3];
