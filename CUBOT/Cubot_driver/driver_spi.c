@@ -53,53 +53,12 @@
  */
 
 #include "driver_spi.h"
+SPI_Instance_t SPI_t[6]={{.spiHandler=&hspi1,.DevicesList={&(SPI_t[0].DevicesList),&(SPI_t[0].DevicesList)}}};
 
-SPI_Instance_t spi[6] = {0};
-
-static uint8_t SPI_SerialNumSelect(SPI_HandleTypeDef *h_spi);
-
-uint8_t SPI_SlaveInit(SPI_Slave_t *slave, SPI_RxCallback rxCallback)
-{
-    uint8_t spi_case         = SPI_SerialNumSelect(slave->spiHandler);
-    slave->RxCallBackSPI     = rxCallback;
-    spi[spi_case].spiHandler = slave->spiHandler;
-    spi[spi_case].total_slaves_num++;
-    if (spi[spi_case].slavesInstance == NULL) {
-        spi[spi_case].slavesInstance = (SPI_Slave_t *)malloc(spi[spi_case].total_slaves_num * sizeof(SPI_Slave_t)); // 动态分配内存
-    } else {
-        spi[spi_case].slavesInstance = (SPI_Slave_t *)realloc(spi[spi_case].slavesInstance, spi[spi_case].total_slaves_num * sizeof(SPI_Slave_t)); // 动态重新分配内存
-    }
-    if (spi[spi_case].slavesInstance == NULL) {
-        return 1; // 内存分配失败
-    }
-    SPI_RegisterSlave(&spi[spi_case], slave);
-    return 0;
-}
-
-/**
- * @brief 将SPI从机注册到SPI主设备
- *
- * @param master    SPI实例结构体
- * @param slave     SPI从机结构体
- */
 void SPI_RegisterSlave(SPI_Instance_t *master, SPI_Slave_t *slave)
 {
-    // 检查该从机是否已经注册过
-    for (uint16_t i = 0; i < master->reg_slaves_num; i++) {
-        if (&master->slavesInstance[i] == slave) {
-            // 该从机已经注册过，更新其注册信息
-            master->slavesInstance[i] = *slave;
-            return;
-        }
-    }
-    // 检查是否还有未注册的从机
-    if (master->reg_slaves_num >= master->total_slaves_num) {
-        return; // 已经没有未注册的从机
-    }
-    // 将从机结构体复制到主设备SPI实例结构体中
-    master->slavesInstance[master->reg_slaves_num] = *slave;
-    // 更新已注册的从机数
-    master->reg_slaves_num++;
+   list_add(&slave->list, (&master->DevicesList));
+	slave->spiHandler=master->spiHandler;
 }
 
 /**
@@ -117,6 +76,7 @@ void SPI_SetMode(SPI_Slave_t *spi_ins, SPI_TXRX_MODE_e spi_mode)
 
 void SPI_Transmit(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len)
 {
+	int i;
     // 拉低片选,开始传输(选中从机)
     HAL_GPIO_WritePin(spi_ins->chipSelect.gpiox, spi_ins->chipSelect.cs_pin, GPIO_PIN_RESET);
     switch (spi_ins->spi_work_mode) {
@@ -138,11 +98,13 @@ void SPI_Transmit(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len)
 
 void SPI_Recv(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len)
 {
+
     // 用于稍后回调使用
     spi_ins->rxBuffer.Size = len;
     spi_ins->rxBuffer.Data = ptr_data;
     // 拉低片选,开始传输
     HAL_GPIO_WritePin(spi_ins->chipSelect.gpiox, spi_ins->chipSelect.cs_pin, GPIO_PIN_RESET);
+	
     switch (spi_ins->spi_work_mode) {
         case SPI_DMA_MODE:
             HAL_SPI_Receive_DMA(spi_ins->spiHandler, ptr_data, len);
@@ -162,6 +124,8 @@ void SPI_Recv(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len)
 
 void SPI_TransRecv(SPI_Slave_t *spi_ins, uint8_t *ptr_data_rx, uint8_t *ptr_data_tx, uint8_t len)
 {
+	
+	
     // 用于稍后回调使用,请保证ptr_data_rx在回调函数被调用之前仍然在作用域内,否则析构之后的行为是未定义的!!!
     spi_ins->rxBuffer.Size = len;
     spi_ins->rxBuffer.Data = ptr_data_rx;
@@ -191,18 +155,26 @@ void SPI_TransRecv(SPI_Slave_t *spi_ins, uint8_t *ptr_data_rx, uint8_t *ptr_data
  */
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *h_spi)
 {
-    uint8_t spi_case = SPI_SerialNumSelect(h_spi);
-    for (size_t i = 0; i < spi[spi_case].total_slaves_num; i++) {
-        // 如果是当前spi硬件发出的complete,且cs_pin为低电平(说明正在传输),则尝试调用回调函数
-        if (HAL_GPIO_ReadPin(spi[spi_case].slavesInstance[i].chipSelect.gpiox, spi[spi_case].slavesInstance[i].chipSelect.cs_pin) == GPIO_PIN_RESET) {
-            // 先拉高片选,结束传输,在判断是否有回调函数,如果有则调用回调函数
-            HAL_GPIO_WritePin(spi[spi_case].slavesInstance[i].chipSelect.gpiox, spi[spi_case].slavesInstance[i].chipSelect.cs_pin, GPIO_PIN_SET);
-            // @todo 后续添加holdon模式,由用户自行决定何时释放片选,允许进行连续传输
-            if (spi[spi_case].slavesInstance[i].RxCallBackSPI != NULL) // 回调函数不为空, 则调用回调函数
-                spi[spi_case].slavesInstance[i].RxCallBackSPI(&spi[spi_case].slavesInstance[i]);
-            return;
-        }
-    }
+	SPI_Instance_t* SPI=NULL;
+	 	SPI_Slave_t *SPI_Slave = NULL;
+	list_t *node = NULL;	
+	
+	for (int i=0;i<6;i++)
+		if (SPI_t[i].spiHandler==h_spi)
+		SPI=&SPI_t[i];
+	
+	for (node = SPI->DevicesList.next;    		//< 对循环链表遍历一圈
+			 node != (SPI->DevicesList.prev->next);
+			 node = node->next)
+	{
+		SPI_Slave= list_entry(node, SPI_Slave_t, list);  //< 输入链表头部所在结点、被嵌入链表的结构体类型、被嵌入链表的结构体类型中链表结点的名称：即可返回嵌入头部所在结点的结构体
+		if (HAL_GPIO_ReadPin(SPI_Slave->chipSelect.gpiox,SPI_Slave->chipSelect.cs_pin)==GPIO_PIN_RESET)
+		{
+   //    SPI_Slave spi_instance[i]->callback(spi_instance[i]);
+		}
+
+	}
+
 }
 
 /**
@@ -217,27 +189,3 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *h_spi)
     HAL_SPI_RxCpltCallback(h_spi); // 直接调用接收完成的回调函数
 }
 
-/**
- * @brief 通过句柄返回SPI编号
- *
- * @param h_spi
- * @return uint8_t
- */
-uint8_t SPI_SerialNumSelect(SPI_HandleTypeDef *h_spi)
-{
-    uint8_t spi_case = 0;
-    if (h_spi->Instance == SPI1) {
-        spi_case = DEVICE_SPI1;
-    } else if (h_spi->Instance == SPI2) {
-        spi_case = DEVICE_SPI2;
-    } else if (h_spi->Instance == SPI3) {
-        spi_case = DEVICE_SPI3;
-    } else if (h_spi->Instance == SPI4) {
-        spi_case = DEVICE_SPI4;
-    } else if (h_spi->Instance == SPI5) {
-        spi_case = DEVICE_SPI5;
-    } else if (h_spi->Instance == SPI6) {
-        spi_case = DEVICE_SPI6;
-    }
-    return spi_case;
-}

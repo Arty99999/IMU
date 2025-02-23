@@ -39,8 +39,8 @@ void HardwareConfig(void)
 	MPU_init();
 
 	DWT_Init(480);
-//	INS_Init(&bmi088.bmi088_Data); //使用BMI088.
-		INS_Init(&mpu6050.mpu6050_Data); // 使用mpu6050
+	INS_Init(&bmi088.bmi088_Data); //使用BMI088.
+	//	INS_Init(&mpu6050.mpu6050_Data); // 使用mpu6050
 	
 
 	TIMx_Init(&htim14,&TIM14_Task);

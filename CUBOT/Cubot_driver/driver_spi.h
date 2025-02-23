@@ -5,6 +5,7 @@
 #include "spi.h"
 #include <stdlib.h>
 #include <stdint.h>
+#include "linux_list.h" 
 
 enum SPI_LIST {
     DEVICE_SPI1,
@@ -55,22 +56,21 @@ typedef struct
  * @brief SPI从机结构体
  */
 typedef struct _SPI_Slave_t {
-    SPI_HandleTypeDef *spiHandler;                // SPI外设handle
     SPI_TXRX_MODE_e spi_work_mode;                // 传输工作模式
     SPI_RxBuffer_t rxBuffer;                      // 接收缓存区结构体
     SPI_TxBuffer_t txBuffer;                      // 发送缓存区结构体
     SPI_Chip_Select_t chipSelect;                 // 片选GPIO引脚结构体
     void (*RxCallBackSPI)(struct _SPI_Slave_t *); // 接收回调函数
+	  list_t   list;
+	  SPI_HandleTypeDef* spiHandler;
 } SPI_Slave_t;
 
 /**
  * @brief SPI实例结构体
  */
 typedef struct _SPI_Instance_t {
-    uint16_t reg_slaves_num;       // 已经注册的片选从机数
-    uint16_t total_slaves_num;     // 总的从机数
-    SPI_HandleTypeDef *spiHandler; // SPI外设handle
-    SPI_Slave_t *slavesInstance;   // SPI从机设备实例结构体指针，用于定义不定长数组
+	  SPI_HandleTypeDef* spiHandler; 
+	  list_t   DevicesList;
 } SPI_Instance_t;
 
 /**
@@ -78,23 +78,10 @@ typedef struct _SPI_Instance_t {
  */
 typedef void (*SPI_RxCallback)(SPI_Slave_t *);
 
-/**
- * @brief 
- * 
- * @param h_spi 
- * @param slave 
- * @param rxCallback 
- * @return uint8_t 
- */
-uint8_t SPI_SlaveInit(SPI_Slave_t *slave, SPI_RxCallback rxCallback);
 
-/**
- * @brief 将SPI从机注册到SPI主设备
- * 
- * @param master 主机SPI端口
- * @param slave 从机设备
- */
 void SPI_RegisterSlave(SPI_Instance_t *master, SPI_Slave_t *slave);
+
+
 
 /**
  * @brief 设置SPI模式
@@ -135,6 +122,6 @@ void SPI_Recv(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len);
  */
 void SPI_TransRecv(SPI_Slave_t *spi_ins, uint8_t *ptr_data_rx, uint8_t *ptr_data_tx, uint8_t len);
 
-extern SPI_Instance_t spi[6];
+extern SPI_Instance_t SPI_t[6];
 
 #endif

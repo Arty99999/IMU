@@ -86,7 +86,7 @@ static void BMI088_GYRO_NS_H(void)
 static uint8_t BMI088_read_write_byte(uint8_t txdata)
 {
     uint8_t rx_data;
-    HAL_SPI_TransmitReceive(spi[0].spiHandler, &txdata, &rx_data, 1, 1000);
+    HAL_SPI_TransmitReceive(SPI_t[0].spiHandler, &txdata, &rx_data, 1, 1000);
     return rx_data;
 }
 
@@ -167,8 +167,8 @@ static void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data);
 uint8_t BMI088_Init(IMU_InitData_t* bmi088_data)
 {
 	BMI088_t* bmi088  =(BMI088_t*)bmi088_data ;
-	SPI_SlaveInit(&(bmi088->bmi088Accel), NULL);
-	SPI_SlaveInit(&(bmi088->bmi088Gyro), NULL);
+	SPI_RegisterSlave(&SPI_t[0],&(bmi088->bmi088Accel));
+	SPI_RegisterSlave(&SPI_t[0], &(bmi088->bmi088Accel));
     error = BMI088_NO_ERROR;
     error |= BMI088_AccInit();
     error |= BMI088_GyroInit();
@@ -384,7 +384,7 @@ void BMI088_Read(IMU_InitData_t *bmi088_data)
 		BMI088_gyro_read_muli_reg(BMI088_GYRO_XOUT_L, buf, 6);
 		bmi088_raw_temp      = (int16_t)((buf[1]) << 8) | buf[0];
 		bmi088_data->gyro[0] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[0];
-		bmi088_raw_temp      = (int16_t)((buf[4]) << 8) | buf[2];
+		bmi088_raw_temp      = (int16_t)((buf[3]) << 8) | buf[2];
 		bmi088_data->gyro[1] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[1];
 		bmi088_raw_temp      = (int16_t)((buf[5]) << 8) | buf[4];
 		bmi088_data->gyro[2] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[2];
