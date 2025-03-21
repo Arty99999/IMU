@@ -2,7 +2,7 @@
 #define DRV_IIC_H
 #include "stm32h7xx_hal.h"
 #include "i2c.h"
-
+#include <driver_device.h>
 
 #define I2Cx_FLAG_TIMEOUT             ((uint32_t) 1000) //0x1100
 #define I2Cx_LONG_TIMEOUT             ((uint32_t) (300 * I2Cx_FLAG_TIMEOUT)) //was300

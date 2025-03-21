@@ -17,57 +17,12 @@
 
 #include "quaternions_EKF.h"
 #include <stdint.h>
-
+#include <driver_device.h>
 #define X               0
 #define Y               1
 #define Z               2
 
 #define INS_TASK_PERIOD 1
-
-
-
-
-
-//typedef enum 
-//{
-//	MPU6050 = 1,
-//	BMI088 = 2
-//}IMU_Type;
-//typedef enum 
-//{
-//	I2C_2= 1,
-//	I2C_4= 2,
-//	SPI_1 =3,
-//	SPI_2 =4
-//}IMU_BusType;
-
-//typedef struct
-//{
-//	IMU_Type   Type;   	 											  //< 电机动态数据，工作中更新
-//  IMU_BusType BusType;
-//	
-//}IMU_Param_t;
-
-//typedef struct
-//{
-//	IMU_InitData_t    Data;   	 											  //< 电机动态数据，工作中更新
-//	IMU_Param_t       Param;	
-//}IMU_t;
-
-
-//IMU_t mpu6050={.};
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 typedef struct _IMU_InitData_t
@@ -79,10 +34,12 @@ typedef struct _IMU_InitData_t
     float temp_when_cali;//标定温度
     float temperature;
     float accel_scale;
-
-    
+	
+    int16_t Raw_accel[3];
+    int16_t Raw_gyro[3];
+	
     uint8_t (*Init)(struct _IMU_InitData_t *);
-    void (*Read)(struct _IMU_InitData_t *);
+    void (*Read)(struct _IMU_InitData_t *,Device_MODE mode);
 } IMU_InitData_t;
 
 typedef struct

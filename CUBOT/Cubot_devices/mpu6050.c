@@ -14,11 +14,6 @@ float MPU6050_GYRO_SEN  = MPU6050_GYRO_1000_SEN;
 
 int16_t mpu6050_cali_count = 0;
 
-// MPU6050 电源开启
-static void MPU6050_PowerOn(void)
-{
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
-}
 
 // 写数据到MPU6050寄存器
 
@@ -28,9 +23,12 @@ static uint8_t MPU6050_WriteByte(uint8_t reg_add, uint8_t reg_dat,I2C_HandleType
 }
 
 // 从MPU6050寄存器读取数据
-static uint8_t MPU6050_ReadData(uint8_t reg_add, uint8_t *Read, uint8_t num,I2C_HandleTypeDef *hi2c)
+static uint8_t MPU6050_ReadData(uint8_t reg_add, uint8_t *Read, uint8_t num,I2C_HandleTypeDef *hi2c,Device_MODE mode)
 {
-    return Sensors_I2C_ReadRegister(MPU6050_ADDRESS, reg_add, num, Read,hi2c);
+	if  (mode==BLOCK_MODE) 
+	HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDRESS,reg_add,I2C_MEMADD_SIZE_8BIT,Read, num, I2Cx_FLAG_TIMEOUT);
+	else if (mode==IT_MODE) 
+	HAL_I2C_Mem_Read_IT(&hi2c2, MPU6050_ADDRESS,reg_add,I2C_MEMADD_SIZE_8BIT,Read, num);
 }
 
 static void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data);
@@ -46,7 +44,7 @@ uint8_t MPU6050_Init(IMU_InitData_t *mpu6050_data)
     DWT_Delay_s(0.5);
     MPU6050_WriteByte(0x6B, 0x00,mpu6050->i2cHandler); // 解除休眠状态0x00
     DWT_Delay_s(0.05);
-    MPU6050_ReadData(MPU6050_RA_WHO_AM_I, &TAddr, 1,mpu6050->i2cHandler);
+    MPU6050_ReadData(MPU6050_RA_WHO_AM_I, &TAddr, 1,mpu6050->i2cHandler,BLOCK_MODE);
     if (TAddr != 0x68)
         return 1;
     MPU6050_WriteByte(0x6B, 0x00,mpu6050->i2cHandler); // 解除休眠状态0x00
@@ -97,7 +95,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
         mpu6050_data->gyro_offset[2] = 0;
 
         for (uint16_t i = 0; i < CaliTimes; ++i) {
-            MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6	 ,mpu6050->i2cHandler);
+            MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6	 ,mpu6050->i2cHandler,BLOCK_MODE);
             mpu6050_raw_temp       = (int16_t)(accBuf[0] << 8) | accBuf[1];
             mpu6050_data->accel[0] = mpu6050_raw_temp * MPU6050_ACCEL_SEN;
             mpu6050_raw_temp       = (int16_t)(accBuf[2] << 8) | accBuf[3];
@@ -110,7 +108,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
                               mpu6050_data->accel[2] * mpu6050_data->accel[2]);
            g_norm += gNormTemp;
 
-            MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6,mpu6050->i2cHandler);
+            MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6,mpu6050->i2cHandler,BLOCK_MODE);
             mpu6050_raw_temp      = (int16_t)(gyroBuf[0] << 8) | gyroBuf[1];
             mpu6050_data->gyro[0] = mpu6050_raw_temp * MPU6050_GYRO_SEN;
             mpu6050_data->gyro_offset[0] += mpu6050_data->gyro[0];
@@ -122,7 +120,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
             mpu6050_data->gyro_offset[2] += mpu6050_data->gyro[2];
 
 
-		        MPU6050_ReadData(MPU6050_TEMP_OUT, TEMP, 2,mpu6050->i2cHandler);
+		        MPU6050_ReadData(MPU6050_TEMP_OUT, TEMP, 2,mpu6050->i2cHandler,BLOCK_MODE);
 	          mpu6050_data->temp_when_cali=(int16_t)(TEMP[0]<<8|TEMP[1])/340.0+36.53;
 						
             if (i == 0) {
@@ -172,7 +170,7 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
              gyroDiff[2] > 0.15f ||
              fabsf(mpu6050_data->gyro_offset[0]) > 0.07f ||
              fabsf(mpu6050_data->gyro_offset[1]) > 0.07f ||
-             fabsf(mpu6050_data->gyro_offset[2]) > 0.02f);
+             fabsf(mpu6050_data->gyro_offset[2]) > 0.03f);
     // 若出不了while，说明校准条件恶劣，超时则使用预置值校准
     mpu6050_data->accel_scale = 9.81f / g_norm;
 }
@@ -180,30 +178,21 @@ void MPU6050_Calibrate_Offset(IMU_InitData_t *mpu6050_data)
 /**
  * @brief   读取陀螺仪数据
  */
-void MPU6050_Read(IMU_InitData_t *mpu6050_data)
+void MPU6050_Read(IMU_InitData_t *mpu6050_data,Device_MODE mode)
 {
-    static uint8_t accBuf[6];
-    static uint8_t gyroBuf[6];
-	  static uint8_t TEMP[2];
-    static int16_t mpu6050_raw_temp;
+    static uint8_t Buf[14];
+    int16_t mpu6050_raw_temp;
 	  MPU6050_t* mpu6050  =(MPU6050_t*)mpu6050_data ;
-    MPU6050_ReadData(MPU6050_ACC_OUT, accBuf, 6,mpu6050 ->i2cHandler);
-    mpu6050_raw_temp       = (int16_t)(accBuf[0] << 8) | accBuf[1];
-    mpu6050_data->accel[0] = mpu6050_raw_temp * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
-    mpu6050_raw_temp       = (int16_t)(accBuf[2] << 8) | accBuf[3];
-    mpu6050_data->accel[1] = mpu6050_raw_temp * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
-    mpu6050_raw_temp       = (int16_t)(accBuf[4] << 8) | accBuf[5];
-    mpu6050_data->accel[2] = mpu6050_raw_temp * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
+    MPU6050_ReadData(MPU6050_ACC_OUT, Buf, 16,mpu6050 ->i2cHandler,mode);
 
-    MPU6050_ReadData(MPU6050_GYRO_OUT, gyroBuf, 6,mpu6050->i2cHandler);
-    mpu6050_raw_temp      = (int16_t)(gyroBuf[0] << 8) | gyroBuf[1];
-    mpu6050_data->gyro[0] = mpu6050_raw_temp * MPU6050_GYRO_SEN - mpu6050_data->gyro_offset[0];
-    mpu6050_raw_temp      = (int16_t)(gyroBuf[2] << 8) | gyroBuf[3];
-    mpu6050_data->gyro[1] = mpu6050_raw_temp * MPU6050_GYRO_SEN - mpu6050_data->gyro_offset[1];
-    mpu6050_raw_temp      = (int16_t)(gyroBuf[4] << 8) | gyroBuf[5];
-    mpu6050_data->gyro[2] = mpu6050_raw_temp * MPU6050_GYRO_SEN - mpu6050_data->gyro_offset[2];
+	mpu6050_data->temperature=(int16_t)(Buf[6]<<8|Buf[7])/340.0+36.53;		
+	for (int i=0;i<3;i++)
+	  {
+			mpu6050_data->Raw_accel[i]= (int16_t)(Buf[2*i] << 8) | Buf[2*i+1];
+      mpu6050_data->accel[i] = mpu6050_data->Raw_accel[i] * MPU6050_ACCEL_SEN * mpu6050_data->accel_scale;
+		  mpu6050_data->Raw_gyro[i]= (int16_t)(Buf[2*i+8] << 8) | Buf[2*i+9];
+      mpu6050_data->gyro[i] = mpu6050_data->Raw_gyro[i] * MPU6050_GYRO_SEN- mpu6050_data->gyro_offset[i];
+    }
 	
-		MPU6050_ReadData(MPU6050_TEMP_OUT, TEMP, 2,mpu6050->i2cHandler);
-	  mpu6050_data->temperature=(int16_t)(TEMP[0]<<8|TEMP[1])/340.0+36.53;
-	
+    
 }

@@ -23,7 +23,6 @@
  */
 #include "bmi088.h"
 #include "user_lib.h"
-
 BMI088_t bmi088 =
  {
         .bmi088Accel =
@@ -37,6 +36,7 @@ BMI088_t bmi088 =
 //										    .cs_pin = GPIO_PIN_2,
 //                        .gpiox  = GPIOD,//外置小板引脚									
                     },
+							.RxCallBackSPI=bmi088Accel_CallBack
             },
         .bmi088Gyro =
             {
@@ -50,12 +50,11 @@ BMI088_t bmi088 =
 //                        .gpiox  = GPIOA,//外置小板引脚
 											
                     },
+										.RxCallBackSPI=bmi088Gyro_CallBack
             },
 		.bmi088_Data={.Init   = BMI088_Init,
 			             .Read   = BMI088_Read}
 };
-
-
 float BMI088_ACCEL_SEN = BMI088_ACCEL_6G_SEN;
 float BMI088_GYRO_SEN  = BMI088_GYRO_2000_SEN;
 
@@ -106,13 +105,6 @@ static uint8_t BMI088_read_write_byte(uint8_t txdata)
         (data) = BMI088_read_write_byte(0x55);  \
         BMI088_ACCEL_NS_H();                    \
     }
-#define BMI088_accel_read_muli_reg(reg, data, len) \
-    {                                              \
-        BMI088_ACCEL_NS_L();                       \
-        BMI088_read_write_byte((reg) | 0x80);      \
-        BMI088_read_muli_reg(reg, data, len);      \
-        BMI088_ACCEL_NS_H();                       \
-    }
 
 #define BMI088_gyro_write_single_reg(reg, data) \
     {                                           \
@@ -126,17 +118,30 @@ static uint8_t BMI088_read_write_byte(uint8_t txdata)
         BMI088_read_single_reg((reg), &(data)); \
         BMI088_GYRO_NS_H();                     \
     }
-#define BMI088_gyro_read_muli_reg(reg, data, len)   \
-    {                                               \
-        BMI088_GYRO_NS_L();                         \
-        BMI088_read_muli_reg((reg), (data), (len)); \
-        BMI088_GYRO_NS_H();                         \
-    }
-
 static void BMI088_write_single_reg(uint8_t reg, uint8_t data);
 static void BMI088_read_single_reg(uint8_t reg, uint8_t *return_data);
 static void BMI088_read_muli_reg(uint8_t reg, uint8_t *buf, uint8_t len);
-
+		
+void BMI088_accel_read_muli_reg(uint8_t reg,uint8_t * data, uint8_t len,Device_MODE mode) 
+	{            
+		 static uint8_t b[30];
+			BMI088_ACCEL_NS_L(); 			
+			b[0]= (reg) | 0x80;b[1]= (reg) | 0x80; for (int i=0;i<len;i++) b[i+2]= 0x55;
+	if (mode==BLOCK_MODE){ 
+	HAL_SPI_TransmitReceive(SPI_t[0].spiHandler, b, data,len+2,1000);
+	BMI088_ACCEL_NS_H(); } 
+	else if (mode==IT_MODE) HAL_SPI_TransmitReceive_IT(SPI_t[0].spiHandler, b, data,len+2);                 
+	}
+	
+void BMI088_gyro_read_muli_reg(uint8_t reg,uint8_t * data, uint8_t len,Device_MODE mode) 
+	{            
+	static uint8_t b[30]; 
+		b[0]= (reg) | 0x80; for (int i=0;i<len;i++) b[i+1]= 0x55;   
+			BMI088_GYRO_NS_L(); 
+if (mode==BLOCK_MODE){HAL_SPI_TransmitReceive(SPI_t[0].spiHandler, b, data,len+1,1000);BMI088_GYRO_NS_H(); }
+		else if (mode==IT_MODE)  HAL_SPI_TransmitReceive_IT(SPI_t[0].spiHandler, b, data,len+1);
+											 
+	}
 #elif defined(BMI088_USE_IIC)
 #endif
 
@@ -168,7 +173,7 @@ uint8_t BMI088_Init(IMU_InitData_t* bmi088_data)
 {
 	BMI088_t* bmi088  =(BMI088_t*)bmi088_data ;
 	SPI_RegisterSlave(&SPI_t[0],&(bmi088->bmi088Accel));
-	SPI_RegisterSlave(&SPI_t[0], &(bmi088->bmi088Accel));
+	SPI_RegisterSlave(&SPI_t[0], &(bmi088->bmi088Gyro));
     error = BMI088_NO_ERROR;
     error |= BMI088_AccInit();
     error |= BMI088_GyroInit();
@@ -206,12 +211,12 @@ void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data)
         bmi088_data->gyro_offset[2] = 0;
 
         for (uint16_t i = 0; i < CaliTimes; ++i) {
-            BMI088_accel_read_muli_reg(BMI088_ACCEL_XOUT_L, buf, 6);
-            bmi088_raw_temp       = (int16_t)((buf[1]) << 8) | buf[0];
-            bmi088_data->accel[0] = bmi088_raw_temp * BMI088_ACCEL_SEN;
+            BMI088_accel_read_muli_reg(BMI088_ACCEL_XOUT_L, buf, 8,BLOCK_MODE);
             bmi088_raw_temp       = (int16_t)((buf[3]) << 8) | buf[2];
-            bmi088_data->accel[1] = bmi088_raw_temp * BMI088_ACCEL_SEN;
+            bmi088_data->accel[0] = bmi088_raw_temp * BMI088_ACCEL_SEN;
             bmi088_raw_temp       = (int16_t)((buf[5]) << 8) | buf[4];
+            bmi088_data->accel[1] = bmi088_raw_temp * BMI088_ACCEL_SEN;
+            bmi088_raw_temp       = (int16_t)((buf[7]) << 8) | buf[6];
             bmi088_data->accel[2] = bmi088_raw_temp * BMI088_ACCEL_SEN;
 
             gNormTemp = sqrtf(bmi088_data->accel[0] * bmi088_data->accel[0] +
@@ -219,7 +224,7 @@ void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data)
                               bmi088_data->accel[2] * bmi088_data->accel[2]);
             g_norm += gNormTemp;
 
-            BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, buf, 8);
+            BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, buf, 8,BLOCK_MODE);
             if (buf[0] == BMI088_GYRO_CHIP_ID_VALUE) {
                 bmi088_raw_temp      = (int16_t)((buf[3]) << 8) | buf[2];
                 bmi088_data->gyro[0] = bmi088_raw_temp * BMI088_GYRO_SEN;
@@ -270,8 +275,8 @@ void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data)
         for (uint8_t i = 0; i < 3; ++i)
             bmi088_data->gyro_offset[i] /= (float)CaliTimes;
 
-        BMI088_accel_read_muli_reg(BMI088_TEMP_M, buf, 2);
-        bmi088_raw_temp = (int16_t)((buf[0] << 3) | (buf[1] >> 5));
+        BMI088_accel_read_muli_reg(BMI088_TEMP_M, buf, 2,BLOCK_MODE);
+        bmi088_raw_temp = (int16_t)((buf[2] << 3) | (buf[3] >> 5));
         if (bmi088_raw_temp > 1023)
             bmi088_raw_temp -= 2048;
         bmi088_data->temp_when_cali = bmi088_raw_temp * BMI088_TEMP_FACTOR + BMI088_TEMP_OFFSET;
@@ -367,29 +372,63 @@ uint8_t BMI088_GyroInit(void)
     return BMI088_NO_ERROR;
 }
 
-void BMI088_Read(IMU_InitData_t *bmi088_data)
+void BMI088_Read(IMU_InitData_t *bmi088_data,Device_MODE mode)
 {
-    static uint8_t buf[8] = {0};
+    static uint8_t buf[40];
     static int16_t bmi088_raw_temp;
 
-    BMI088_accel_read_muli_reg(BMI088_ACCEL_XOUT_L, buf, 6);
+	if (mode==IT_MODE) {
+    BMI088_accel_read_muli_reg(BMI088_ACCEL_XOUT_L, buf, 34,IT_MODE);
 
-    bmi088_raw_temp       = (int16_t)((buf[1]) << 8) | buf[0];
-    bmi088_data->accel[0] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
     bmi088_raw_temp       = (int16_t)((buf[3]) << 8) | buf[2];
-    bmi088_data->accel[1] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
+		bmi088_data->Raw_accel[0]=bmi088_raw_temp  ;
+    bmi088_data->accel[0] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
     bmi088_raw_temp       = (int16_t)((buf[5]) << 8) | buf[4];
+		bmi088_data->Raw_accel[1]=bmi088_raw_temp  ;
+    bmi088_data->accel[1] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
+    bmi088_raw_temp       = (int16_t)((buf[7]) << 8) | buf[6];
+		bmi088_data->Raw_accel[2]=bmi088_raw_temp  ;
     bmi088_data->accel[2] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
 
-		BMI088_gyro_read_muli_reg(BMI088_GYRO_XOUT_L, buf, 6);
-		bmi088_raw_temp      = (int16_t)((buf[1]) << 8) | buf[0];
-		bmi088_data->gyro[0] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[0];
-		bmi088_raw_temp      = (int16_t)((buf[3]) << 8) | buf[2];
-		bmi088_data->gyro[1] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[1];
-		bmi088_raw_temp      = (int16_t)((buf[5]) << 8) | buf[4];
-		bmi088_data->gyro[2] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[2];
+    bmi088_raw_temp = (int16_t)((buf[18] << 3) | (buf[19] >> 5));
 
-    BMI088_accel_read_muli_reg(BMI088_TEMP_M, buf, 2);
+    if (bmi088_raw_temp > 1023) {
+        bmi088_raw_temp -= 2048;
+    }
+
+    bmi088_data->temperature = bmi088_raw_temp * BMI088_TEMP_FACTOR + BMI088_TEMP_OFFSET;
+		
+	}
+		
+		
+	
+else if (mode==BLOCK_MODE)
+{ BMI088_accel_read_muli_reg(BMI088_ACCEL_XOUT_L, buf, 6,BLOCK_MODE);
+
+    bmi088_raw_temp       = (int16_t)((buf[1]) << 8) | buf[0];
+		bmi088_data->Raw_accel[0]=bmi088_raw_temp  ;
+    bmi088_data->accel[0] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
+    bmi088_raw_temp       = (int16_t)((buf[3]) << 8) | buf[2];
+		bmi088_data->Raw_accel[1]=bmi088_raw_temp  ;
+    bmi088_data->accel[1] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
+    bmi088_raw_temp       = (int16_t)((buf[5]) << 8) | buf[4];
+		bmi088_data->Raw_accel[2]=bmi088_raw_temp  ;
+    bmi088_data->accel[2] = bmi088_raw_temp * BMI088_ACCEL_SEN * bmi088_data->accel_scale;
+
+    BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, buf, 8,BLOCK_MODE);
+    if (buf[0] == BMI088_GYRO_CHIP_ID_VALUE) {
+      
+        bmi088_raw_temp      = (int16_t)((buf[3]) << 8) | buf[2];
+			 bmi088_data->Raw_gyro[0]=bmi088_raw_temp  ;
+        bmi088_data->gyro[0] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[0];
+        bmi088_raw_temp      = (int16_t)((buf[5]) << 8) | buf[4];
+			bmi088_data->Raw_gyro[1]=bmi088_raw_temp  ;
+        bmi088_data->gyro[1] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[1];
+        bmi088_raw_temp      = (int16_t)((buf[7]) << 8) | buf[6];
+			bmi088_data->Raw_gyro[2]=bmi088_raw_temp  ;
+        bmi088_data->gyro[2] = bmi088_raw_temp * BMI088_GYRO_SEN - bmi088_data->gyro_offset[2];
+    }
+    BMI088_accel_read_muli_reg(BMI088_TEMP_M, buf, 2,BLOCK_MODE);
 
     bmi088_raw_temp = (int16_t)((buf[0] << 3) | (buf[1] >> 5));
 
@@ -398,6 +437,10 @@ void BMI088_Read(IMU_InitData_t *bmi088_data)
     }
 
     bmi088_data->temperature = bmi088_raw_temp * BMI088_TEMP_FACTOR + BMI088_TEMP_OFFSET;
+	}
+		
+		
+		
 }
 
 #if defined(BMI088_USE_SPI)
@@ -424,6 +467,44 @@ static void BMI088_read_muli_reg(uint8_t reg, uint8_t *buf, uint8_t len)
         len--;
     }
 }
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *h_spi)
+{
+	SPI_Instance_t* SPI=NULL;
+	 	SPI_Slave_t *SPI_Slave = NULL;
+	list_t *node = NULL;	
+	
+	for (int i=0;i<6;i++)
+		if (SPI_t[i].spiHandler==h_spi)
+		SPI=&SPI_t[i];
+	
+	for (node = SPI->DevicesList.next;    		//< 对循环链表遍历一圈
+			 node != (SPI->DevicesList.prev->next);
+			 node = node->next)
+	{
+		SPI_Slave= list_entry(node, SPI_Slave_t, list);  //< 输入链表头部所在结点、被嵌入链表的结构体类型、被嵌入链表的结构体类型中链表结点的名称：即可返回嵌入头部所在结点的结构体
+		if (HAL_GPIO_ReadPin(SPI_Slave->chipSelect.gpiox,SPI_Slave->chipSelect.cs_pin)==GPIO_PIN_RESET)
+		{
+			SPI_Slave->RxCallBackSPI(SPI_Slave);
+		}
+	}
+}
+	void bmi088Accel_CallBack(struct _SPI_Slave_t * SPI_Slave)
+	{
+		static uint8_t BUF1[9];
+		IMU_InitData_t * bmi088_Data  =(IMU_InitData_t *)((char *)SPI_Slave - offsetof(BMI088_t, bmi088Accel));
+			 BMI088_ACCEL_NS_H(); 
+	 BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, BUF1, 8,IT_MODE);
+		for (int i=0;i<3;i++)
+	     {bmi088_Data ->Raw_gyro[i]= (int16_t)((BUF1[4+2*i]) << 8) | BUF1[3+2*i];
+			 bmi088_Data->gyro[i]= bmi088_Data ->Raw_gyro[i]*BMI088_GYRO_SEN- bmi088_Data->gyro_offset[i];}
+	}
+	void bmi088Gyro_CallBack(struct _SPI_Slave_t * SPI_Slave)
+	{
+		
+		BMI088_GYRO_NS_H();
+		
+	}
 #elif defined(BMI088_USE_IIC)
 
 #endif

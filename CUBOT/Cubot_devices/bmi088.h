@@ -48,8 +48,11 @@ extern uint8_t BMI088_GyroInit(void);
  *
  * @param bmi088_data 传入BMI088实例(结构体)
  */
-extern void BMI088_Read(IMU_InitData_t *bmi088_data);
-
+ void BMI088_Read(IMU_InitData_t *bmi088_data,Device_MODE mode);
+ void BMI088_gyro_read_muli_reg_IT(uint8_t reg,uint8_t * data, uint8_t len) ;
+ void BMI088_accel_read_muli_reg_IT(uint8_t reg,uint8_t * data, uint8_t len) ;
+ 	void bmi088Accel_CallBack(struct _SPI_Slave_t *);
+	void bmi088Gyro_CallBack(struct _SPI_Slave_t *);
 extern BMI088_t bmi088;
 
 #if defined(BMI088_USE_SPI)

@@ -63,6 +63,7 @@ typedef struct _SPI_Slave_t {
     void (*RxCallBackSPI)(struct _SPI_Slave_t *); // 接收回调函数
 	  list_t   list;
 	  SPI_HandleTypeDef* spiHandler;
+	
 } SPI_Slave_t;
 
 /**

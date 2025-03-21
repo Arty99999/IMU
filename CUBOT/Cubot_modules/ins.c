@@ -50,7 +50,7 @@ static void InitQuaternion(float *init_q4, IMU_InitData_t *imu_data)
     float axis_rot[3]     = {0};       // 旋转轴
     // 读取100次加速度计数据,取平均值作为初始值
     for (uint8_t i = 0; i < 100; ++i) {
-        imu_data->Read(imu_data);
+        imu_data->Read(imu_data,BLOCK_MODE);
         acc_init[X] += imu_data->accel[X];
         acc_init[Y] += imu_data->accel[Y];
         acc_init[Z] += imu_data->accel[Z];
@@ -117,7 +117,7 @@ Attitude_t *INS_GetAttitude(IMU_InitData_t *imu_data)
     dt = DWT_GetDeltaT(&INS_DWT_Count);
     t += dt;
 
-    imu_data->Read(imu_data);
+    imu_data->Read(imu_data,IT_MODE);
 
     ins.attitude.accel[X] = imu_data->accel[X];
     ins.attitude.accel[Y] = imu_data->accel[Y];

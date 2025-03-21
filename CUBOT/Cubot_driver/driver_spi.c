@@ -184,8 +184,5 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *h_spi)
  *          和RxCpltCallback共用解析即可,这里只是形式上封装一下,不用重复写。
  * @param h_spi spi handle
  */
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *h_spi)
-{
-    HAL_SPI_RxCpltCallback(h_spi); // 直接调用接收完成的回调函数
-}
+
 

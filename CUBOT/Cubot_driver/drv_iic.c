@@ -91,3 +91,12 @@ int Sensors_I2C_ReadRegister(unsigned char slave_addr,
 	return status;
 }
 
+int Sensors_I2C_ReadRegister_IT(unsigned char slave_addr,
+	unsigned char reg_addr,
+	unsigned short len,
+	unsigned char* data_ptr,I2C_HandleTypeDef *hi2c)
+{
+	HAL_StatusTypeDef status = HAL_OK;
+  HAL_I2C_Mem_Read_IT(&hi2c2, slave_addr, reg_addr, I2C_MEMADD_SIZE_8BIT, data_ptr, len);
+	return status;
+}

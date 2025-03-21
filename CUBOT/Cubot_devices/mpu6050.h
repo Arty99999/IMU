@@ -35,7 +35,7 @@ typedef struct
 
 uint8_t MPU6050_Init(IMU_InitData_t *mpu6050_data);
 
-void MPU6050_Read(IMU_InitData_t *mpu6050_data);
+void MPU6050_Read(IMU_InitData_t *mpu6050_data,Device_MODE mode);
 
 extern MPU6050_t mpu6050;
 
