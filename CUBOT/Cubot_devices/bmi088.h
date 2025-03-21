@@ -18,6 +18,7 @@ typedef struct {
     IMU_InitData_t bmi088_Data;
 	  SPI_Slave_t bmi088Accel;
     SPI_Slave_t bmi088Gyro;
+	
 } BMI088_t;
 
 /**

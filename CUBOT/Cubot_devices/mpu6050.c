@@ -5,7 +5,8 @@
 MPU6050_t mpu6050={
  .i2cHandler=&hi2c2,
  .mpu6050_Data.Init = MPU6050_Init,
- .mpu6050_Data.Read = MPU6050_Read
+ .mpu6050_Data.Read = MPU6050_Read,
+	 .mpu6050_Data.mode=IT_MODE
 };
 
 

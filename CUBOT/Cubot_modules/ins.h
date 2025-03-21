@@ -40,6 +40,8 @@ typedef struct _IMU_InitData_t
 	
     uint8_t (*Init)(struct _IMU_InitData_t *);
     void (*Read)(struct _IMU_InitData_t *,Device_MODE mode);
+	
+	 Device_MODE mode;
 } IMU_InitData_t;
 
 typedef struct

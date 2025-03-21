@@ -16,14 +16,6 @@ enum SPI_LIST {
     DEVICE_SPI6,
     SPI_DEVICE_NUM,
 };
-/**
- * @brief   SPI接收模式枚举
- */
-typedef enum {
-    SPI_BLOCK_MODE, // 默认使用阻塞模式
-    SPI_IT_MODE,
-    SPI_DMA_MODE,
-} SPI_TXRX_MODE_e;
 
 /**
  * @brief SPI片选信号对应的GPIO引脚号
@@ -56,14 +48,12 @@ typedef struct
  * @brief SPI从机结构体
  */
 typedef struct _SPI_Slave_t {
-    SPI_TXRX_MODE_e spi_work_mode;                // 传输工作模式
     SPI_RxBuffer_t rxBuffer;                      // 接收缓存区结构体
     SPI_TxBuffer_t txBuffer;                      // 发送缓存区结构体
     SPI_Chip_Select_t chipSelect;                 // 片选GPIO引脚结构体
     void (*RxCallBackSPI)(struct _SPI_Slave_t *); // 接收回调函数
 	  list_t   list;
 	  SPI_HandleTypeDef* spiHandler;
-	
 } SPI_Slave_t;
 
 /**
@@ -83,45 +73,6 @@ typedef void (*SPI_RxCallback)(SPI_Slave_t *);
 void SPI_RegisterSlave(SPI_Instance_t *master, SPI_Slave_t *slave);
 
 
-
-/**
- * @brief 设置SPI模式
- *
- * @param spi_ins   SPI从机结构体指针
- * @param spi_mode  工作模式,包括阻塞模式(block),中断模式(IT),DMA模式.详见SPI_TXRX_MODE_e的定义
- */
-void SPI_SetMode(SPI_Slave_t *spi_ins, SPI_TXRX_MODE_e spi_mode);
-
-/**
- * @brief 通过spi向对应从机发送数据
- * 
- * @param spi_ins spi实例指针
- * @param ptr_data 要发送的数据
- * @param len 待发送的数据长度
- */
-void SPI_Transmit(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len);
-
-/**
- * @brief 通过spi从从机获取数据
- * @attention 特别注意:请保证ptr_data在回调函数被调用之前仍然在作用域内,否则析构之后的行为是未定义的!!!
- * 
- * @param spi_ins spi实例指针
- * @param ptr_data 接受数据buffer的首地址
- * @param len 待接收的长度
- */
-void SPI_Recv(SPI_Slave_t *spi_ins, uint8_t *ptr_data, uint8_t len);
-
-/**
- * @brief 通过spi利用移位寄存器同时收发数据
- * @todo  后续加入阻塞模式下的timeout参数
- * @attention 特别注意:请保证ptr_data_rx在回调函数被调用之前仍然在作用域内,否则析构之后的行为是未定义的!!!
- * 
- * @param spi_ins spi实例指针
- * @param ptr_data_rx 接收数据地址
- * @param ptr_data_tx 发送数据地址
- * @param len 接收&发送的长度
- */
-void SPI_TransRecv(SPI_Slave_t *spi_ins, uint8_t *ptr_data_rx, uint8_t *ptr_data_tx, uint8_t len);
 
 extern SPI_Instance_t SPI_t[6];
 

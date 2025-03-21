@@ -117,7 +117,7 @@ Attitude_t *INS_GetAttitude(IMU_InitData_t *imu_data)
     dt = DWT_GetDeltaT(&INS_DWT_Count);
     t += dt;
 
-    imu_data->Read(imu_data,IT_MODE);
+    imu_data->Read(imu_data,imu_data->mode);
 
     ins.attitude.accel[X] = imu_data->accel[X];
     ins.attitude.accel[Y] = imu_data->accel[Y];
