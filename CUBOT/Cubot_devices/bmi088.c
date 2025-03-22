@@ -201,7 +201,7 @@ void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data)
     static uint16_t CaliTimes = 6000;
     static float gyroDiff[3], gNormDiff;
     float g_norm;
-    uint8_t buf[8] = {0, 0, 0, 0, 0, 0};
+    uint8_t buf[10] = {0, 0, 0, 0, 0, 0};
     int16_t bmi088_raw_temp;
     float gyroMax[3], gyroMin[3];
     float gNormTemp = 0.0f, gNormMax = 0.0f, gNormMin = 0.0f;
@@ -242,15 +242,15 @@ void BMI088_Calibrate_Offset(IMU_InitData_t *bmi088_data)
             g_norm += gNormTemp;
 
             BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, buf, 8, BLOCK_MODE);
-            if (buf[0] == BMI088_GYRO_CHIP_ID_VALUE)
+            if (buf[1] == BMI088_GYRO_CHIP_ID_VALUE)
             {
-                bmi088_raw_temp = (int16_t)((buf[3]) << 8) | buf[2];
+                bmi088_raw_temp = (int16_t)((buf[4]) << 8) | buf[3];
                 bmi088_data->gyro[0] = bmi088_raw_temp * BMI088_GYRO_SEN;
                 bmi088_data->gyro_offset[0] += bmi088_data->gyro[0];
-                bmi088_raw_temp = (int16_t)((buf[5]) << 8) | buf[4];
+                bmi088_raw_temp = (int16_t)((buf[6]) << 8) | buf[5];
                 bmi088_data->gyro[1] = bmi088_raw_temp * BMI088_GYRO_SEN;
                 bmi088_data->gyro_offset[1] += bmi088_data->gyro[1];
-                bmi088_raw_temp = (int16_t)((buf[7]) << 8) | buf[6];
+                bmi088_raw_temp = (int16_t)((buf[8]) << 8) | buf[7];
                 bmi088_data->gyro[2] = bmi088_raw_temp * BMI088_GYRO_SEN;
                 bmi088_data->gyro_offset[2] += bmi088_data->gyro[2];
             }
